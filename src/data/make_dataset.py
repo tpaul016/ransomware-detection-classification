@@ -8,9 +8,9 @@ from datetime import datetime
 import re
 from os import listdir
 from os.path import isfile, join
+from sklearn.preprocessing import StandardScaler
 
 plt.style.use('ggplot')
-
 
 def main():
     """ Runs data processing scripts to turn raw data from (../raw) into
@@ -19,19 +19,27 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
 
-    malicous_src_path = "..\..\data\\raw\stratosphereips\Malicious\\"
-    malicous_dest_path = "..\..\data\processed\Malicious\\"
-    process_folder(malicous_src_path, malicous_dest_path, 'malicious', 1)
-    normal_src_path = "..\..\data\\raw\stratosphereips\\Normal\\"
-    normal_dest_path = "..\..\data\processed\\Normal\\"
-    process_folder(normal_src_path, normal_dest_path, 'normal', 0)
+    stratosphereips_malicous_src_path = "..\..\data\\raw\\stratosphereips\\Malicious\\"
+    stratosphereips_malicous_dest_path = "..\..\data\processed\\stratosphereips\Malicious\\"
+    process_folder(stratosphereips_malicous_src_path, stratosphereips_malicous_dest_path, 'malicious', 1, 'stratosphereips')
 
-def process_folder(src_path, dest_path, file_name, malicious):
+    stratosphereips_normal_src_path = "..\..\data\\raw\\stratosphereips\\Normal\\"
+    stratosphereips_normal_dest_path = "..\..\data\processed\\stratosphereips\\Normal\\"
+    process_folder(stratosphereips_normal_src_path, stratosphereips_normal_dest_path, 'normal', 0, 'stratosphereips')
+
+    cicFlowMeter_malicous_src_path = "..\..\data\\raw\\malware-traffic-analysis.net\\CICFlowMeter\\"
+    cicFlowMeter_malicous_dest_path = "..\..\data\processed\\malware-traffic-analysis.net\\Malicious\\"
+    process_folder(cicFlowMeter_malicous_src_path, cicFlowMeter_malicous_dest_path, 'malicious', 1, 'cicFlowMeter')
+
+def process_folder(src_path, dest_path, file_name, malicious, data_source):
     files = [join(src_path, f) for f in listdir(src_path)]
     count = 0
     for f in files:
         try:
-            df = process_data(f, malicious)
+            if data_source == 'stratosphereips':
+                df = process_stratosphereips_data(f, malicious)
+            elif data_source == 'cicFlowMeter':
+                df = process_CICFlowMeter_data(f, malicious)
             count += 1
             df.to_csv(dest_path + file_name + str(count) + '.csv', encoding='utf-8', index=False)
         except:
@@ -39,24 +47,44 @@ def process_folder(src_path, dest_path, file_name, malicious):
 
     print('processed ' + str(count) + ' files')
 
-def process_data(file_path, malicious):
+def process_stratosphereips_data(file_path, malicious):
     df = pd.read_csv(file_path)
-    df.dropna(axis=0, inplace=True, subset=['SrcAddr', 'Sport', 'DstAddr', 'Dport', 'TotBytes', 'SrcBytes', 'TotPkts'])
+    df.rename(columns={'Sport':'SrcPort', 'Dport':'DstPort'}, inplace=True)
+    df.dropna(axis=0, inplace=True, subset=['SrcAddr', 'SrcPort', 'DstAddr', 'DstPort', 'TotBytes', 'SrcBytes', 'TotPkts'])
     df['Label'] = malicious
+    df['Dur'] = df['Dur'] * 1000
     df['StartTime'] = df['StartTime'].map(convert_to_timestamp)
-    df['Endtime'] = df['StartTime'] + (df['Dur'] * 1000)
+    df['Endtime'] = df['StartTime'] + df['Dur']
+    # df.drop(['Dir', 'srcUdata', 'dstUdata'], axis=1, inplace=True)
     df.drop(['Dir'], axis=1, inplace=True)
-    df.rename(columns={'Sport':'SrcPort', 'Dport':'DPort'}, inplace=True)
     # print(df.iloc[[5]])
     return df
 
+def process_CICFlowMeter_data(file_path, malicious):
+    df = pd.read_csv(file_path)
+    df = df[['Timestamp', 'Flow Duration', 'Protocol', 'Src IP', 'Src Port', 'Dst IP', 'Dst Port', 'Tot Fwd Pkts','Tot Bwd Pkts','TotLen Fwd Pkts','TotLen Bwd Pkts', 'Label']]
+    df.rename(columns={'Timestamp':'Start Time', 'Flow Duration':'Duration'}, inplace=True)
+    df.dropna(axis=0, inplace=True, subset=['Src IP', 'Src Port', 'Dst IP', 'Dst Port', 'Tot Fwd Pkts','Tot Bwd Pkts','TotLen Fwd Pkts','TotLen Bwd Pkts'])
+    df['Label'] = malicious
+    df['Duration'] = df['Duration'] / 1000
+    df['Start Time'] = df['Start Time'].map(convert_CICFlowMeter_timestamp)
+    df['End Time'] = df['Start Time'] + df['Duration']
+    return df
 
 def convert_to_timestamp(value):
     date_search = re.search('(\d{4})/(\d{2})/(\d{2})\s+(\d{2}):(\d{2}):(\d{2}).(\d{6})', value)
     date = datetime(int(date_search.group(1)), int(date_search.group(2)), int(date_search.group(3)), int(date_search.group(4)), int(date_search.group(5)), int(date_search.group(6)), int(date_search.group(7)))
     return datetime.timestamp(date)
 
-
+def convert_CICFlowMeter_timestamp(value):
+    date_search = re.search('(\d{2})/(\d{2})/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(AM|PM)', value)
+    hour = date_search.group(4)
+    if hour == '12':
+        hour = 0
+    elif date_search.group(7) == 'PM':
+        hour = int(hour) + 12
+    date = datetime(int(date_search.group(3)), int(date_search.group(2)), int(date_search.group(1)), hour, int(date_search.group(5)), int(date_search.group(6)))
+    return datetime.timestamp(date)
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
