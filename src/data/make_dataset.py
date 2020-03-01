@@ -69,6 +69,7 @@ def process_CICFlowMeter_data(file_path, malicious):
     df['Duration'] = df['Duration'] / 1000
     df['Start Time'] = df['Start Time'].map(convert_CICFlowMeter_timestamp)
     df['End Time'] = df['Start Time'] + df['Duration']
+    df['Tot Pkts'] = df['Tot Fwd Pkts'] + df['Tot Bwd Pkts']
     return df
 
 def convert_to_timestamp(value):
