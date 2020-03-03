@@ -53,7 +53,7 @@ def process_stratosphereips_data(file_path, malicious):
     df.dropna(axis=0, inplace=True, subset=['SrcAddr', 'SrcPort', 'DstAddr', 'DstPort', 'TotBytes', 'SrcBytes', 'TotPkts'])
     df['Label'] = malicious
     df['Dur'] = df['Dur'] * 1000
-    df['StartTime'] = df['StartTime'].map(convert_to_timestamp)
+    df['StartTime'] = df['StartTime'].map(convert_to_timestamp) + df.groupby('StartTime').cumcount() * 0.1
     df['Endtime'] = df['StartTime'] + df['Dur']
     # df.drop(['Dir', 'srcUdata', 'dstUdata'], axis=1, inplace=True)
     df.drop(['Dir'], axis=1, inplace=True)
@@ -67,7 +67,7 @@ def process_CICFlowMeter_data(file_path, malicious):
     df.dropna(axis=0, inplace=True, subset=['Src IP', 'Src Port', 'Dst IP', 'Dst Port', 'Tot Fwd Pkts','Tot Bwd Pkts','TotLen Fwd Pkts','TotLen Bwd Pkts'])
     df['Label'] = malicious
     df['Duration'] = df['Duration'] / 1000
-    df['Start Time'] = df['Start Time'].map(convert_CICFlowMeter_timestamp)
+    df['Start Time'] = df['Start Time'].map(convert_CICFlowMeter_timestamp) + df.groupby('Start Time').cumcount() * 0.1
     df['End Time'] = df['Start Time'] + df['Duration']
     df['Tot Pkts'] = df['Tot Fwd Pkts'] + df['Tot Bwd Pkts']
     return df
