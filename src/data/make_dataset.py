@@ -8,6 +8,7 @@ from datetime import datetime
 import re
 from os import listdir
 from os.path import isfile, join
+import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 plt.style.use('ggplot')
@@ -19,45 +20,62 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
 
+    df = pd.DataFrame(columns=['Dst IP','Dst Port','Duration','End Time','Label','Src IP','Src Port','Start Time','Tot Bytes','Tot Pkts'])
+
     stratosphereips_malicous_src_path = "..\..\data\\raw\\stratosphereips\\Malicious\\"
     stratosphereips_malicous_dest_path = "..\..\data\processed\\stratosphereips\Malicious\\"
-    process_folder(stratosphereips_malicous_src_path, stratosphereips_malicous_dest_path, 'malicious', 1, 'stratosphereips')
+    df = process_folder(stratosphereips_malicous_src_path, stratosphereips_malicous_dest_path, 'malicious', 1, 'stratosphereips', df)
 
     stratosphereips_normal_src_path = "..\..\data\\raw\\stratosphereips\\Normal\\"
     stratosphereips_normal_dest_path = "..\..\data\processed\\stratosphereips\\Normal\\"
-    process_folder(stratosphereips_normal_src_path, stratosphereips_normal_dest_path, 'normal', 0, 'stratosphereips')
+    df = process_folder(stratosphereips_normal_src_path, stratosphereips_normal_dest_path, 'normal', 0, 'stratosphereips', df)
 
     cicFlowMeter_malicous_src_path = "..\..\data\\raw\\malware-traffic-analysis.net\\CICFlowMeter\\"
     cicFlowMeter_malicous_dest_path = "..\..\data\processed\\malware-traffic-analysis.net\\Malicious\\"
-    process_folder(cicFlowMeter_malicous_src_path, cicFlowMeter_malicous_dest_path, 'malicious', 1, 'cicFlowMeter')
+    df = process_folder(cicFlowMeter_malicous_src_path, cicFlowMeter_malicous_dest_path, 'malicious', 1, 'cicFlowMeter', df)
 
-def process_folder(src_path, dest_path, file_name, malicious, data_source):
+    df.to_csv("..\..\data\processed\\processed_data.csv", encoding='utf-8', index=False)
+
+
+def process_folder(src_path, dest_path, file_name, malicious, data_source, df):
     files = [join(src_path, f) for f in listdir(src_path)]
     count = 0
     for f in files:
         try:
             if data_source == 'stratosphereips':
-                df = process_stratosphereips_data(f, malicious)
+                new_df = process_stratosphereips_data(f, malicious)
             elif data_source == 'cicFlowMeter':
-                df = process_CICFlowMeter_data(f, malicious)
+                new_df = process_CICFlowMeter_data(f, malicious)
             count += 1
-            df.to_csv(dest_path + file_name + str(count) + '.csv', encoding='utf-8', index=False)
+            df = df.append(new_df.reindex(columns=sorted(new_df.columns)), ignore_index=True, sort=False)
+            # df.to_csv(dest_path + file_name + str(count) + '.csv', encoding='utf-8', index=False)
         except:
             print('error processing: ' + f)
 
     print('processed ' + str(count) + ' files')
+    return df
 
 def process_stratosphereips_data(file_path, malicious):
     df = pd.read_csv(file_path)
-    df.rename(columns={'Sport':'SrcPort', 'Dport':'DstPort'}, inplace=True)
-    df.dropna(axis=0, inplace=True, subset=['SrcAddr', 'SrcPort', 'DstAddr', 'DstPort', 'TotBytes', 'SrcBytes', 'TotPkts'])
+    # StartTime,Dur,Proto,SrcAddr,Sport,Dir,DstAddr,Dport,State,sTos,dTos,TotPkts,TotBytes,SrcBytes,srcUdata,dstUdata,Label
+    df.rename(columns={'Sport':'Src Port', 'Dport':'Dst Port', 'SrcAddr':'Src IP', 'DstAddr': 'Dst IP', 'TotPkts': 'Tot Pkts', 'TotBytes': 'Tot Bytes', 'StartTime': 'Start Time', 'Dur': 'Duration', 'Proto': 'Protocol'}, inplace=True)
+    df.dropna(axis=0, inplace=True, subset=['Src IP', 'Src Port', 'Dst IP', 'Dst Port', 'Tot Bytes', 'Tot Pkts'])
+    df = df[df['Protocol'] != 'ipv6-icmp']
+    df = df[~df['Src IP'].str.contains(':')]
+    df = df[~df['Dst IP'].str.contains(':')]
+    df = df[~df['Src Port'].astype(str).str.contains('x')]
+    df = df[~df['Dst Port'].astype(str).str.contains('x')]
     df['Label'] = malicious
-    df['Dur'] = df['Dur'] * 1000
-    df['StartTime'] = df['StartTime'].map(convert_to_timestamp) + df.groupby('StartTime').cumcount() * 0.1
-    df['Endtime'] = df['StartTime'] + df['Dur']
-    # df.drop(['Dir', 'srcUdata', 'dstUdata'], axis=1, inplace=True)
-    df.drop(['Dir'], axis=1, inplace=True)
-    # print(df.iloc[[5]])
+    df['Duration'] = df['Duration'] * 1000
+    df['Start Time'] = df['Start Time'].map(convert_to_timestamp) + df.groupby('Start Time').cumcount() * 0.1
+    df['End Time'] = df['Start Time'] + df['Duration']
+    # df['Src Port'] = df.loc[df['Src Port'].astype(str).str.contains('x', na=True)]['Src Port'].apply(lambda x: int(x, 16))
+    # df['Dst Port'] = df.loc[df['Dst Port'].astype(str).str.contains('x', na=True)]['Dst Port'].apply(lambda x: int(x, 16))
+    df.drop(['Dir', 'State', 'sTos', 'dTos', 'SrcBytes', 'Protocol'], axis=1, inplace=True)
+    if 'srcUdata' in df.columns:
+        df.drop(['srcUdata'], axis=1, inplace=True)
+    if 'dstUdata' in df.columns:
+        df.drop(['dstUdata'], axis=1, inplace=True)
     return df
 
 def process_CICFlowMeter_data(file_path, malicious):
@@ -70,6 +88,8 @@ def process_CICFlowMeter_data(file_path, malicious):
     df['Start Time'] = df['Start Time'].map(convert_CICFlowMeter_timestamp) + df.groupby('Start Time').cumcount() * 0.1
     df['End Time'] = df['Start Time'] + df['Duration']
     df['Tot Pkts'] = df['Tot Fwd Pkts'] + df['Tot Bwd Pkts']
+    df['Tot Bytes'] = df['TotLen Fwd Pkts'] = df['TotLen Bwd Pkts']
+    df.drop(columns=['TotLen Fwd Pkts', 'TotLen Bwd Pkts', 'Tot Fwd Pkts', 'Tot Bwd Pkts', 'Protocol'], inplace=True)
     return df
 
 def convert_to_timestamp(value):
