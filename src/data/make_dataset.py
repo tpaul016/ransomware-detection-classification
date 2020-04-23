@@ -3,14 +3,14 @@ import logging
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from datetime import datetime
 import re
 from os import listdir
 from os.path import isfile, join
-from sklearn.preprocessing import StandardScaler
+# from sklearn.preprocessing import StandardScaler
 
-plt.style.use('ggplot')
+# plt.style.use('ggplot')
 
 def main():
     """ Runs data processing scripts to turn raw data from (../raw) into
