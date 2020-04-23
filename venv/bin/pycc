@@ -1,0 +1,3 @@
+#!/Users/Trist/Documents/uOttawa/SEG3904/ransomware-detection-classification/venv/bin/python
+from numba.pycc import main
+main()
