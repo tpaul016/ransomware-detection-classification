@@ -3,7 +3,8 @@ import numpy as np
 import datetime as dt
 
 rolling_window_size = 10000
-rolling_window_time = '600s' # in seconds
+rolling_window_time = '600s'  # in seconds
+
 
 def calculate_features(df):
     # connection based features
@@ -24,7 +25,8 @@ def calculate_features(df):
         lambda x: pd.Series(x).rolling(rolling_window_size, min_periods=1).apply(lambda y: len(set(y))))
 
     # 6. Average number of bytes for any of the flow records in which a specific SRCADDRESS has appeared within the last X flow records
-    df['conn_bytes_for_src_adr_avg'] = df.groupby('Src IP')['Tot Bytes'].apply(lambda x: pd.Series(x).rolling(rolling_window_size, min_periods=1).mean())
+    df['conn_bytes_for_src_adr_avg'] = df.groupby('Src IP')['Tot Bytes'].apply(
+        lambda x: pd.Series(x).rolling(rolling_window_size, min_periods=1).mean())
 
     # 7. Average number of packets for any of the flow records in which a specific SRCADDRESS has appeared within the last X flow records
     df['conn_pkts_for_src_adr_avg'] = df.groupby('Src IP')['Tot Pkts'].apply(
@@ -47,7 +49,8 @@ def calculate_features(df):
         lambda x: pd.Series(x).rolling(rolling_window_size, min_periods=1).apply(lambda y: len(set(y))))
 
     # 12. Average number of bytes for any of the flow records in which a specific DSTADDRESS has appeared within the last X flow records
-    df['conn_bytes_for_dst_adr_avg'] = df.groupby('Dst IP')['Tot Bytes'].apply(lambda x: pd.Series(x).rolling(rolling_window_size, min_periods=1).mean())
+    df['conn_bytes_for_dst_adr_avg'] = df.groupby('Dst IP')['Tot Bytes'].apply(
+        lambda x: pd.Series(x).rolling(rolling_window_size, min_periods=1).mean())
 
     # 13. Average number of packets for any of the flow records in which a specific DSTADDRESS has appeared within the last X flow records
     df['conn_pkts_for_dst_adr_avg'] = df.groupby('Dst IP')['Tot Pkts'].apply(
@@ -74,7 +77,8 @@ def calculate_features(df):
         lambda x: pd.Series(x).rolling(rolling_window_time, min_periods=1).apply(lambda y: len(set(y))))
 
     # 19. Average number of bytes for any of the flow records in which a specific SRCADDRESS has appeared within the last X minutes
-    df['time_bytes_for_src_adr_avg'] = df.groupby('Src IP')['Tot Bytes'].apply(lambda x: pd.Series(x).rolling(rolling_window_time, min_periods=1).mean())
+    df['time_bytes_for_src_adr_avg'] = df.groupby('Src IP')['Tot Bytes'].apply(
+        lambda x: pd.Series(x).rolling(rolling_window_time, min_periods=1).mean())
 
     # 20. Average number of packets for any of the flow records in which a specific SRCADDRESS has appeared within the last X minutes
     df['time_pkts_for_src_adr_avg'] = df.groupby('Src IP')['Tot Pkts'].apply(
@@ -97,7 +101,8 @@ def calculate_features(df):
         lambda x: pd.Series(x).rolling(rolling_window_time, min_periods=1).apply(lambda y: len(set(y))))
 
     # 25. Average number of bytes for any of the flow records in which a specific DSTADDRESS has appeared within the last X minutes
-    df['time_bytes_for_dst_adr_avg'] = df.groupby('Dst IP')['Tot Bytes'].apply(lambda x: pd.Series(x).rolling(rolling_window_time, min_periods=1).mean())
+    df['time_bytes_for_dst_adr_avg'] = df.groupby('Dst IP')['Tot Bytes'].apply(
+        lambda x: pd.Series(x).rolling(rolling_window_time, min_periods=1).mean())
 
     # 26. Average number of packets for any of the flow records in which a specific DSTADDRESS has appeared within the last X minutes
     df['time_pkts_for_dst_adr_avg'] = df.groupby('Dst IP')['Tot Pkts'].apply(
@@ -113,6 +118,7 @@ def calculate_features(df):
     # 2. Total flows in the backward direction in the window
     df['conn_bwd_flow_count'] = df['Dst Port'].rolling(rolling_window_size).apply(lambda x: (x > 1023).sum())
     df['time_bwd_flow_count'] = df['Dst Port'].rolling(rolling_window_time).apply(lambda x: (x > 1023).sum())
+
 
 list_of_dfs = []
 chunksize = 100000
